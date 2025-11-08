@@ -141,51 +141,51 @@ class POCSAGSettingsView : public View {
     POCSAGSettings& settings_;
 
     Labels labels{
-        {{2 * 8, 11 * 16}, "Baud Rate:", Theme::getInstance()->fg_light->foreground},
-        {{2 * 8, 12 * 16}, "Filter Mode:", Theme::getInstance()->fg_light->foreground},
-        {{2 * 8, 13 * 16}, "Filter Addr:", Theme::getInstance()->fg_light->foreground},
+        {{2 * 8, 10 * 16}, "Baud Rate:", Theme::getInstance()->fg_light->foreground},
+        {{2 * 8, 13 * 16}, "Filter Mode:", Theme::getInstance()->fg_light->foreground},
+        {{2 * 8, 14 * 16}, "Filter Addr:", Theme::getInstance()->fg_light->foreground},
     };
 
     Checkbox check_log{
-        {2 * 8, 2 * 16},
+        {2 * 8, 1 * 16},
         10,
         "Enable Log"};
 
     Checkbox check_log_raw{
-        {2 * 8, 4 * 16},
+        {2 * 8, 3 * 16},
         12,
         "Log Raw Data"};
 
     Checkbox check_small_font{
-        {2 * 8, 6 * 16},
+        {2 * 8, 5 * 16},
         4,
         "Use Small Font"};
 
     Checkbox check_hide_bad{
-        {2 * 8, 8 * 16},
+        {2 * 8, 7 * 16},
         22,
         "Hide Bad Data"};
 
     Checkbox check_hide_addr_only{
-        {2 * 8, 10 * 16},
+        {2 * 8, 9 * 16},
         22,
         "Hide Addr Only"};
 
     OptionsField opt_filter_mode{
-        {15 * 8, 12 * 16},
+        {15 * 8, 13 * 16},
         4,
         {{"None", FILTER_NONE},
          {"Drop", FILTER_DROP},
          {"Keep", FILTER_KEEP}}};
 
     SymField field_filter_address{
-        {15 * 8, 13 * 16},
+        {15 * 8, 14 * 16},
         7,
         SymField::Type::Dec,
         true /*explicit_edit*/};
 
     Button button_baud_override{
-        {15 * 8, 11 * 16, 6 * 8, 2 * 16},
+        {15 * 8, 10 * 16, 6 * 8, 2 * 16},
         "Auto"};
 
     Button button_save{
