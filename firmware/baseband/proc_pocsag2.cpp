@@ -166,10 +166,38 @@ void BitExtractor::reset() {
 
     for (auto& rate : known_rates_)
         rate.reset();
+
+    if (manual_override_enabled_ && manual_rate_) {
+        manual_rate_->is_stable = true;
+        current_rate_ = manual_rate_;
+    }
 }
 
 uint16_t BitExtractor::baud_rate() const {
     return current_rate_ ? current_rate_->baud_rate : 0;
+}
+
+void BitExtractor::set_manual_rate(uint16_t baud_rate) {
+    manual_override_enabled_ = false;
+    manual_rate_ = nullptr;
+
+    if (baud_rate == 0) {
+        current_rate_ = nullptr;
+        return;
+    }
+
+    for (auto& rate : known_rates_) {
+        if (static_cast<uint16_t>(rate.baud_rate) == baud_rate) {
+            manual_override_enabled_ = true;
+            manual_rate_ = &rate;
+            manual_rate_->reset();
+            manual_rate_->is_stable = true;
+            current_rate_ = manual_rate_;
+            return;
+        }
+    }
+
+    current_rate_ = nullptr;
 }
 
 bool BitExtractor::RateInfo::handle_sample(float sample) {
@@ -351,9 +379,11 @@ void POCSAGProcessor::execute(const buffer_c8_t& buffer) {
 
 void POCSAGProcessor::on_message(const Message* const message) {
     switch (message->id) {
-        case Message::ID::POCSAGConfigure:
-            configure();
+        case Message::ID::POCSAGConfigure: {
+            auto config = reinterpret_cast<const POCSAGConfigureMessage*>(message);
+            configure(config->manual_baud);
             break;
+        }
 
         case Message::ID::NBFMConfigure: {
             auto config = reinterpret_cast<const NBFMConfigureMessage*>(message);
@@ -370,7 +400,7 @@ void POCSAGProcessor::on_message(const Message* const message) {
     }
 }
 
-void POCSAGProcessor::configure() {
+void POCSAGProcessor::configure(uint16_t manual_baud) {
     constexpr size_t decim_0_output_fs = baseband_fs / decim_0.decimation_factor;
     constexpr size_t decim_1_output_fs = decim_0_output_fs / decim_1.decimation_factor;
     constexpr size_t channel_filter_output_fs = decim_1_output_fs / 2;
@@ -385,6 +415,10 @@ void POCSAGProcessor::configure() {
     audio_output.configure(false);
 
     bit_extractor.configure(demod_input_fs);
+    bit_extractor.set_manual_rate(manual_baud);
+    bit_extractor.reset();
+    bits.reset();
+    word_extractor.reset();
 
     // Set ready to process data.
     configured = true;

@@ -29,6 +29,8 @@
 #include "utility.hpp"
 #include "file_path.hpp"
 
+#include <array>
+
 using namespace portapack;
 using namespace pocsag;
 namespace pmem = portapack::persistent_memory;
@@ -50,6 +52,25 @@ void POCSAGLogger::log_decoded(Timestamp timestamp, const std::string& text) {
 
 namespace ui {
 
+namespace {
+
+constexpr std::array<uint16_t, 4> baud_rate_values{0, 512, 1200, 2400};
+constexpr std::array<const char*, 4> baud_rate_labels{"Auto", "512", "1200", "2400"};
+
+uint8_t clamp_baud_index(uint8_t index) {
+    return (index < baud_rate_values.size()) ? index : 0;
+}
+
+const char* baud_label(uint8_t index) {
+    return baud_rate_labels[clamp_baud_index(index)];
+}
+
+uint16_t baud_value(uint8_t index) {
+    return baud_rate_values[clamp_baud_index(index)];
+}
+
+}  // namespace
+
 POCSAGSettingsView::POCSAGSettingsView(
     NavigationView& nav,
     POCSAGSettings& settings)
@@ -61,6 +82,7 @@ POCSAGSettingsView::POCSAGSettingsView(
          &check_small_font,
          &check_hide_bad,
          &check_hide_addr_only,
+         &button_baud_override,
          &opt_filter_mode,
          &field_filter_address,
          &button_save});
@@ -72,6 +94,13 @@ POCSAGSettingsView::POCSAGSettingsView(
     check_hide_addr_only.set_value(settings_.hide_addr_only);
     opt_filter_mode.set_by_value(settings_.filter_mode);
     field_filter_address.set_value(settings_.filter_address);
+    selected_baud_override_ = clamp_baud_index(settings_.baud_override);
+    button_baud_override.set_text(baud_label(selected_baud_override_));
+
+    button_baud_override.on_select = [this](Button&) {
+        selected_baud_override_ = static_cast<uint8_t>((selected_baud_override_ + 1) % baud_rate_values.size());
+        button_baud_override.set_text(baud_label(selected_baud_override_));
+    };
 
     button_save.on_select = [this, &nav](Button&) {
         settings_.enable_logging = check_log.value();
@@ -81,6 +110,7 @@ POCSAGSettingsView::POCSAGSettingsView(
         settings_.hide_addr_only = check_hide_addr_only.value();
         settings_.filter_mode = opt_filter_mode.selected_index_value();
         settings_.filter_address = field_filter_address.to_integer();
+        settings_.baud_override = selected_baud_override_;
 
         nav.pop();
     };
@@ -142,7 +172,6 @@ POCSAGAppView::POCSAGAppView(NavigationView& nav)
 
     audio::output::start();
     receiver_model.enable();
-    baseband::set_pocsag();
 }
 
 void POCSAGAppView::focus() {
@@ -183,6 +212,8 @@ void POCSAGAppView::refresh_ui() {
             break;
     }
     button_filter_last.set_text(btn_text);
+
+    baseband::set_pocsag(manual_baud_rate());
 }
 
 bool POCSAGAppView::ignore_address(uint32_t address) const {
@@ -359,6 +390,10 @@ void FrameIndicator::paint(Painter& painter) {
         auto p2 = p + Point{2, 15 - (int)i};
         painter.draw_hline(p2, 2, i < frame_count_ ? Theme::getInstance()->bg_darkest->foreground : Theme::getInstance()->bg_darkest->background);
     }
+}
+
+uint16_t POCSAGAppView::manual_baud_rate() const {
+    return baud_value(settings_.baud_override);
 }
 
 } /* namespace ui */

@@ -127,6 +127,7 @@ struct POCSAGSettings {
     bool hide_addr_only = false;
     uint8_t filter_mode = false;
     uint32_t filter_address = 0;
+    uint8_t baud_override = 0;
 };
 
 class POCSAGSettingsView : public View {
@@ -140,6 +141,7 @@ class POCSAGSettingsView : public View {
     POCSAGSettings& settings_;
 
     Labels labels{
+        {{2 * 8, 11 * 16}, "Baud Rate:", Theme::getInstance()->fg_light->foreground},
         {{2 * 8, 12 * 16}, "Filter Mode:", Theme::getInstance()->fg_light->foreground},
         {{2 * 8, 13 * 16}, "Filter Addr:", Theme::getInstance()->fg_light->foreground},
     };
@@ -182,9 +184,15 @@ class POCSAGSettingsView : public View {
         SymField::Type::Dec,
         true /*explicit_edit*/};
 
+    Button button_baud_override{
+        {15 * 8, 11 * 16, 6 * 8, 2 * 16},
+        "Auto"};
+
     Button button_save{
         {UI_POS_X_CENTER(10), UI_POS_Y(16), 10 * 8, 2 * 16},
         "Save"};
+
+    uint8_t selected_baud_override_ = 0;
 };
 
 class POCSAGAppView : public View {
@@ -221,6 +229,7 @@ class POCSAGAppView : public View {
             {"filter_address"sv, &settings_.filter_address},
             {"hide_bad_data"sv, &settings_.hide_bad_data},
             {"hide_addr_only"sv, &settings_.hide_addr_only},
+            {"baud_override"sv, &settings_.baud_override},
         }};
 
     void refresh_ui();
@@ -228,6 +237,8 @@ class POCSAGAppView : public View {
     void handle_decoded(Timestamp timestamp, const std::string& prefix);
     void on_packet(const POCSAGPacketMessage* message);
     void on_stats(const POCSAGStatsMessage* stats);
+
+    uint16_t manual_baud_rate() const;
 
     uint32_t last_address = 0;
     pocsag::EccContainer ecc{};

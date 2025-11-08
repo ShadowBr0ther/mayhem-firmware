@@ -85,6 +85,7 @@ class BitExtractor {
     void configure(uint32_t sample_rate);
     void reset();
     uint16_t baud_rate() const;
+    void set_manual_rate(uint16_t baud_rate);
 
    private:
     /* Clock signal detection magic number. */
@@ -120,6 +121,8 @@ class BitExtractor {
 
     uint32_t sample_rate_ = 0;
     RateInfo* current_rate_ = nullptr;
+    RateInfo* manual_rate_ = nullptr;
+    bool manual_override_enabled_ = false;
 };
 
 /* Extracts codeword batches from the BitQueue. */
@@ -207,7 +210,7 @@ class POCSAGProcessor : public BasebandProcessor {
     static constexpr uint32_t stat_update_threshold =
         baseband_fs / stat_update_interval;
 
-    void configure();
+    void configure(uint16_t manual_baud);
     void flush();
     void reset();
     void send_stats() const;
