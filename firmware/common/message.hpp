@@ -1187,9 +1187,12 @@ class FSKRxConfigureMessage : public Message {
 
 class POCSAGConfigureMessage : public Message {
    public:
-    constexpr POCSAGConfigureMessage()
-        : Message{ID::POCSAGConfigure} {
+    constexpr POCSAGConfigureMessage(uint16_t manual_baud = 0)
+        : Message{ID::POCSAGConfigure},
+          manual_baud{manual_baud} {
     }
+
+    uint16_t manual_baud = 0;
 };
 
 class APRSPacketMessage : public Message {
