@@ -28,8 +28,11 @@
 #include "ui_freqman.hpp"
 #include "audio.hpp"
 
+#include <utility>
+
 using namespace portapack;
 namespace pmem = portapack::persistent_memory;
+using std::literals::operator""sv;
 
 namespace ui {
 
@@ -59,8 +62,14 @@ void RecentEntriesTable<SearchRecentEntries>::draw(
 
 /* SearchView ********************************************/
 
+SearchView::SearchView(NavigationView& nav)
+    : SearchView(nav, "rx_search"sv, {}) {
+}
+
 SearchView::SearchView(
-    NavigationView& nav)
+    NavigationView& nav,
+    std::string_view settings_key,
+    app_settings::SettingBindings extra_settings)
     : nav_(nav) {
     spectrum_row.resize(240);
     baseband::run_image(portapack::spi_flash::image_tag_wideband_spectrum);
@@ -86,6 +95,11 @@ SearchView::SearchView(
                   &big_display,
                   &check_log,
                   &recent_entries_view});
+
+    app_settings_ = std::make_unique<app_settings::SettingsManager>(
+        settings_key,
+        app_settings::Mode::RX,
+        make_settings_bindings(std::move(extra_settings)));
 
     baseband::set_spectrum(SEARCH_SLICE_WIDTH, 31);
 
@@ -124,6 +138,7 @@ SearchView::SearchView(
 
     progress_timers.set_max(DETECT_DELAY);
 
+    reset_detection_state();
     on_range_changed();
     receiver_model.enable();
 
@@ -210,15 +225,12 @@ void SearchView::do_detection() {
                         entry.set_time(str_timestamp);
                         recent_entries_view.set_dirty();
 
-                        text_infos.set("Locked ! ");
+                        text_infos.set(locked_status_text());
                         big_display.set_style(Theme::getInstance()->fg_green);
 
                         locked = true;
                         locked_bin = bin_max;
-                        if (pmem::beep_on_packets()) {
-                            baseband::request_audio_beep(1000, 24000, 60);
-                        }
-                        // TODO: open Audio.
+                        on_lock_acquired(resolved_frequency, slice_max);
                     } else
                         text_infos.set("Out of range");
                 }
@@ -238,8 +250,9 @@ void SearchView::do_detection() {
                 if (logging) logger.log_data(entry);
                 recent_entries_view.set_dirty();
 
-                text_infos.set("Listening");
+                text_infos.set(idle_status_text());
                 big_display.set_style(Theme::getInstance()->fg_medium);
+                on_lock_released();
             }
         }
     }
@@ -334,12 +347,23 @@ void SearchView::on_channel_spectrum(const ChannelSpectrum& spectrum) {
 
     if (slices_nb > 1) {
         // Slice sequence
-        if (slice_counter >= slices_nb) {
+        if (locked && should_hold_locked_slice()) {
+            size_t index = locked_slice_index();
+            if (index >= slices_nb) {
+                index = slices_nb ? (slices_nb - 1) : 0;
+            }
+            slice_counter = static_cast<uint8_t>(index);
             do_detection();
-            slice_counter = 0;
-        } else
-            slice_counter++;
-        receiver_model.set_target_frequency(slices[slice_counter].center_frequency);
+            receiver_model.set_target_frequency(hold_frequency());
+        } else {
+            if (slice_counter >= slices_nb) {
+                do_detection();
+                slice_counter = 0;
+            } else {
+                slice_counter++;
+            }
+            receiver_model.set_target_frequency(slices[slice_counter].center_frequency);
+        }
         baseband::set_spectrum(SEARCH_SLICE_WIDTH, 31);  // Clear
     } else {
         // Unique slice
@@ -354,6 +378,9 @@ void SearchView::on_range_changed() {
     rf::Frequency center_frequency;
     int64_t offset;
     size_t slice;
+
+    reset_detection_state();
+    on_detection_reset();
 
     // TODO: enforce min < max?
     search_span = abs(settings_.freq_max - settings_.freq_min);
@@ -402,6 +429,72 @@ void SearchView::add_spectrum_pixel(Color color) {
 
     if (pixel_index < spectrum_row.size())
         spectrum_row[pixel_index++] = color;
+}
+
+const char* SearchView::locked_status_text() const {
+    return "Locked ! ";
+}
+
+const char* SearchView::idle_status_text() const {
+    return "Listening";
+}
+
+void SearchView::on_lock_acquired(rf::Frequency /*frequency*/, size_t /*slice_index*/) {
+    if (pmem::beep_on_packets()) {
+        baseband::request_audio_beep(1000, 24000, 60);
+    }
+}
+
+void SearchView::on_lock_released() {
+}
+
+void SearchView::on_detection_reset() {
+}
+
+bool SearchView::should_hold_locked_slice() const {
+    return false;
+}
+
+size_t SearchView::locked_slice_index() const {
+    return 0;
+}
+
+rf::Frequency SearchView::hold_frequency() const {
+    return resolved_frequency;
+}
+
+void SearchView::reset_detection_state() {
+    locked = false;
+    locked_bin = 0;
+    detect_timer = 0;
+    release_timer = 0;
+    duration = 0;
+    search_counter = 0;
+    last_bin = -1;
+    last_slice = 0;
+    slice_counter = 0;
+    overall_power_max = 0;
+    mean_acc = 0;
+    mean_power = 0;
+    text_infos.set(idle_status_text());
+    progress_timers.set_value(0);
+    big_display.set_style(Theme::getInstance()->fg_medium);
+}
+
+app_settings::SettingBindings SearchView::make_settings_bindings(app_settings::SettingBindings extra_settings) {
+    app_settings::SettingBindings bindings{
+        {"power_threshold"sv, &settings_.power_threshold},
+        {"freq_min"sv, &settings_.freq_min},
+        {"freq_max"sv, &settings_.freq_max},
+        {"snap_search"sv, &settings_.snap_search},
+        {"snap_step"sv, &settings_.snap_step},
+    };
+
+    for (auto& setting : extra_settings) {
+        bindings.push_back(std::move(setting));
+    }
+
+    return bindings;
 }
 
 } /* namespace ui */

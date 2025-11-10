@@ -29,6 +29,9 @@
 #include "log_file.hpp"
 #include "file_path.hpp"
 
+#include <memory>
+#include <string_view>
+
 namespace ui {
 
 #define SEARCH_SLICE_WIDTH 2500000                // Search slice bandwidth
@@ -103,7 +106,17 @@ class SearchView : public View {
 
     std::string title() const override { return "Search"; };
 
-   private:
+   protected:
+    SearchView(NavigationView& nav, std::string_view settings_key, app_settings::SettingBindings extra_settings = {});
+
+    struct SearchSettings {
+        uint32_t power_threshold = 80;
+        rf::Frequency freq_min = 100'000'000;
+        rf::Frequency freq_max = 400'000'000;
+        bool snap_search = true;
+        uint32_t snap_step = 12'500;
+    };
+
     NavigationView& nav_;
     Gradient gradient{};
     RxRadioState radio_state_{
@@ -112,25 +125,22 @@ class SearchView : public View {
         SEARCH_SLICE_WIDTH /* sampling rate */,
         ReceiverModel::Mode::SpectrumAnalysis};
 
-    // Settings
-    struct SearchSettings {
-        uint32_t power_threshold = 80;
-        rf::Frequency freq_min = 100'000'000;
-        rf::Frequency freq_max = 400'000'000;
-        bool snap_search = true;
-        uint32_t snap_step = 12'500;
-    };
     SearchSettings settings_{};
-    app_settings::SettingsManager app_settings_{
-        "rx_search"sv,
-        app_settings::Mode::RX,
-        {
-            {"power_threshold"sv, &settings_.power_threshold},
-            {"freq_min"sv, &settings_.freq_min},
-            {"freq_max"sv, &settings_.freq_max},
-            {"snap_search"sv, &settings_.snap_search},
-            {"snap_step"sv, &settings_.snap_step},
-        }};
+    std::unique_ptr<app_settings::SettingsManager> app_settings_{};
+
+    bool is_locked() const { return locked; }
+
+    virtual const char* locked_status_text() const;
+    virtual const char* idle_status_text() const;
+    virtual void on_lock_acquired(rf::Frequency frequency, size_t slice_index);
+    virtual void on_lock_released();
+    virtual void on_detection_reset();
+    virtual bool should_hold_locked_slice() const;
+    virtual size_t locked_slice_index() const;
+    virtual rf::Frequency hold_frequency() const;
+
+    void reset_detection_state();
+    app_settings::SettingBindings make_settings_bindings(app_settings::SettingBindings extra_settings);
 
     struct slice_t {
         rf::Frequency center_frequency;
