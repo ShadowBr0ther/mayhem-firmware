@@ -29,7 +29,6 @@
 #include "log_file.hpp"
 #include "file_path.hpp"
 #include "freqman.hpp"
-#include "ui_freqman.hpp"
 
 namespace ui {
 
