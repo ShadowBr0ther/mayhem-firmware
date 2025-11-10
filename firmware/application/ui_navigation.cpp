@@ -51,6 +51,7 @@
 // #include "ui_scanner.hpp"
 #include "ui_sd_over_usb.hpp"
 #include "ui_search.hpp"
+#include "ui_search_audio.hpp"
 #include "ui_settings.hpp"
 #include "ui_siggen.hpp"
 #include "ui_sonde.hpp"
@@ -131,6 +132,7 @@ const NavigationView::AppList NavigationView::appList = {
     {"pocsag", "POCSAG", RX, Color::green(), &bitmap_icon_pocsag, new ViewFactory<POCSAGAppView>()},
     {"radiosonde", "Radiosnde", RX, Color::green(), &bitmap_icon_sonde, new ViewFactory<SondeView>()},
     {"search", "Search", RX, Color::yellow(), &bitmap_icon_search, new ViewFactory<SearchView>()},
+    {"search_audio", "Search Audio", RX, Color::yellow(), &bitmap_icon_search, new ViewFactory<SearchAudioView>()},
     {"subghzd", "SubGhzD", RX, Color::yellow(), &bitmap_icon_remote, new ViewFactory<SubGhzDView>()},
     {"weather", "Weather", RX, Color::green(), &bitmap_icon_thermometer, new ViewFactory<WeatherView>()},
     /* TX ********************************************************************/
